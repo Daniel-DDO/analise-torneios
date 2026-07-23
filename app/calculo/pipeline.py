@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
 from sqlmodel import Session, select
-from app.models import Fase, Participacao, Partida, AnaliseResultado
+from app.models import Fase, Participacao, Partida, AnaliseResultado, ParecerResultado
 from app.calculo.monte_carlo import simular_temporada
+from app.calculo.parecer import calcular_situacoes_matematicas, calcular_jogos_decisivos
 from app.config import settings
 
 
@@ -44,6 +45,8 @@ async def recalcular_fase(fase_id: str, session: Session) -> None:
 
     partidas_restantes = [
         {
+            "partida_id": p.id,
+            "numero_rodada": p.numero_rodada,
             "mandante_id": p.mandante_jogador_clube_id,
             "visitante_id": p.visitante_jogador_clube_id,
         }
@@ -133,3 +136,49 @@ async def recalcular_fase(fase_id: str, session: Session) -> None:
             n_simulacoes=n_sim,
         ))
     session.commit()
+
+    # --- Parecer (situações matemáticas + jogos decisivos) ---
+    # Só faz sentido enquanto a fase está em andamento e tem jogo restante;
+    # se encerrou, não há mais nada "decisivo" pra calcular.
+    if not fase.encerrada and partidas_restantes:
+        situacoes = calcular_situacoes_matematicas(
+            participacoes=participacoes,
+            partidas_restantes=partidas_restantes,
+            zonas_ranges=zonas_ranges,
+            zona_rebaixamento=zona_rebaixamento,
+        )
+
+        menor_rodada_pendente = min(
+            (j["numero_rodada"] for j in partidas_restantes if j["numero_rodada"] is not None),
+            default=None,
+        )
+        partidas_proxima_rodada = [
+            j for j in partidas_restantes if j["numero_rodada"] == menor_rodada_pendente
+        ] if menor_rodada_pendente is not None else []
+
+        jogos_decisivos = calcular_jogos_decisivos(
+            participacoes=participacoes,
+            partidas_da_proxima_rodada=partidas_proxima_rodada,
+            todas_partidas_restantes=partidas_restantes,
+            zonas_ranges=zonas_ranges,
+            zona_rebaixamento=zona_rebaixamento,
+        )
+
+        parecer_payload = {
+            "proximaRodada": menor_rodada_pendente,
+            "situacoes": situacoes,
+            "jogosDecisivos": jogos_decisivos,
+        }
+
+        parecer_existente = session.get(ParecerResultado, fase_id)
+        if parecer_existente:
+            parecer_existente.resultado = parecer_payload
+            parecer_existente.calculado_em = datetime.now(timezone.utc)
+            session.add(parecer_existente)
+        else:
+            session.add(ParecerResultado(
+                fase_id=fase_id,
+                resultado=parecer_payload,
+                calculado_em=datetime.now(timezone.utc),
+            ))
+        session.commit()

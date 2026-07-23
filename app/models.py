@@ -58,3 +58,13 @@ class AnaliseResultado(SQLModel, table=True):
     resultado: Dict[str, Any] = Field(sa_column=Column(JSON))
     calculado_em: datetime
     n_simulacoes: int
+
+
+class ParecerResultado(SQLModel, table=True):
+    """Cache do 'parecer' (interpretação matemática + jogos decisivos) de uma
+    fase. Guardado separado de AnaliseResultado porque é mais caro de calcular
+    (roda simulações condicionais) e pode ser invalidado/recalculado de forma
+    independente no futuro, se necessário."""
+    fase_id: str = Field(primary_key=True)
+    resultado: Dict[str, Any] = Field(sa_column=Column(JSON))
+    calculado_em: datetime

@@ -13,6 +13,11 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# CORS liberado para qualquer origem: quem chama esse microsserviço é o
+# FRONTEND diretamente (não o back Java), então não dá pra restringir a um
+# único domínio sem quebrar localhost/produção/preview ao mesmo tempo.
+# Como o serviço não usa cookies/sessão (sem autenticação própria), liberar
+# geral aqui não expõe dados sensíveis por CSRF.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
