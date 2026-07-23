@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: analise
+      POSTGRES_PASSWORD: analise123
+      POSTGRES_DB: analise_torneios
+    ports:
+      - "5433:5432"   # 5433 pra não bater com um Postgres local na 5432
+    volumes:
+      - analise_torneios_data:/var/lib/postgresql/data
+
+volumes:
+  analise_torneios_data:
