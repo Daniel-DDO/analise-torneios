@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.db import criar_tabelas
 from app.routers import sync, eventos, analise
 
@@ -10,6 +11,14 @@ app = FastAPI(
         "e só recalcula quando avisado (eventos) ou via sync manual."
     ),
     version="1.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
